@@ -11,8 +11,9 @@ GMScope 从**算法正确性**（SM2/SM3/SM4）、**协议合规性**（TLCP / �
 **3 条命令上手：**
 
 ```bash
-# ① 安装（建议在虚拟环境中）
-pip install -e ".[all]"
+# ① 安装（本机无 pip，统一 uv；Python 3.11）
+uv venv --python 3.11
+uv pip install -e ".[all]"
 
 # ② 标准向量自检（GM/T 0002 / GM/T 0004 附录示例）
 gmscope selftest
