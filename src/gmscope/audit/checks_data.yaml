@@ -1,0 +1,550 @@
+# GMScope 密评自查检查项库（72 项）
+#
+# 组织方式：GB/T 39786-2021《信息系统密码应用基本要求》四层面
+#（物理和环境安全 / 网络和通信安全 / 设备和计算安全 / 应用和数据安全）
+# 及 密钥管理、安全管理，共 6 组 72 项。
+#
+# 判定逻辑：path/op/value 三态 DSL（符合 / 部分符合 / 不适用 → 不符合；
+# 详见 src/gmscope/audit/dsl.py 与 docs/06 §15.5）。risk ∈ {high, medium, low}。
+#
+# 合规说明：本库为「自查口径」整理，std_ref 仅标注标准与层面，不转录标准正文；
+# 正式密评结论以具备资质的测评机构依据 GB/T 39786 / GM/T 0115 出具的测评报告为准。
+meta:
+  version: "0.2.0"
+  basis:
+    - "GB/T 39786-2021 信息安全技术 信息系统密码应用基本要求"
+    - "GM/T 0115-2021 信息系统密码应用测评要求"
+  scoring: "简化展示口径：层面得分 =（符合数 + 0.5 × 部分符合数）/ 适用项数 × 100；非官方量化评估规则"
+layers:
+  - { key: physical, name: 物理和环境安全 }
+  - { key: network, name: 网络和通信安全 }
+  - { key: device, name: 设备和计算安全 }
+  - { key: application, name: 应用和数据安全 }
+  - { key: keys, name: 密钥管理 }
+  - { key: management, name: 安全管理 }
+items:
+  # ── 物理和环境安全 ────────────────────────────────────────────────
+  - id: PHY-01
+    layer: physical
+    title: 门禁记录应使用密码技术进行保护
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: high
+    advice: 对门禁记录的存储与传输采用 SM4 加密与 SM3 完整性保护
+    logic: { path: physical.access_control.crypto_protection, op: truthy }
+  - id: PHY-02
+    layer: physical
+    title: 门禁保护应使用合规密码算法
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: high
+    advice: 将非国密算法替换为 SM4/SM3 等国密算法
+    logic: { path: physical.access_control.algorithm, op: in, value: ["SM4"] }
+  - id: PHY-03
+    layer: physical
+    title: 门禁记录应具备完整性保护
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: medium
+    advice: 使用 SM3 等国密杂凑算法对门禁记录做完整性校验
+    logic: { path: physical.access_control.integrity, op: in, value: ["SM3"] }
+  - id: PHY-04
+    layer: physical
+    title: 视频监控数据存储应加密
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: high
+    advice: 对视频监控录像数据采用 SM4 加密存储
+    logic: { path: physical.video_surveillance.storage_encrypted, op: truthy }
+  - id: PHY-05
+    layer: physical
+    title: 视频监控加密应使用合规算法
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: medium
+    advice: 使用 SM4 等国密算法保护视频监控数据
+    logic: { path: physical.video_surveillance.algorithm, op: in, value: ["SM4", "SM2"] }
+  - id: PHY-06
+    layer: physical
+    title: 视频监控录像保存期限应不少于 30 天
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: low
+    advice: 延长录像保存期限并确保存储数据的密码保护持续有效
+    logic: { path: physical.video_surveillance.retention_days, op: ge, value: 30 }
+  - id: PHY-07
+    layer: physical
+    title: 应对重要区域进行物理访问控制区域划分
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: medium
+    advice: 划分重要区域并部署符合要求的访问控制措施
+    logic: { path: physical.zone_defined, op: truthy }
+  - id: PHY-08
+    layer: physical
+    title: 物理设备维护记录应受保护
+    std_ref: "GB/T 39786-2021 · 物理和环境安全层面"
+    risk: low
+    advice: 对设备维护记录采取密码技术保护
+    logic: { path: physical.maintenance.protected, op: truthy }
+  # ── 网络和通信安全 ────────────────────────────────────────────────
+  - id: NET-01
+    layer: network
+    title: 通信应采用国密协议（TLCP/国密 SSL）
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: high
+    advice: 启用 TLCP/国密 SSL 协议，逐步停用国际 TLS 版本
+    logic: { path: network.tls.protocols, op: contains_any, value: ["TLCP", "GM/SSL"] }
+    partial: { path: network.tls.protocols, op: contains_any, value: ["TLS1.2", "TLS1.3"] }
+  - id: NET-02
+    layer: network
+    title: 通信应启用国密密码套件
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: high
+    advice: 配置 SM4 国密套件（ECDHE_SM4_GCM_SM3 / ECC_SM4_CBC_SM3 等）
+    logic:
+      path: network.tls.sm_suites
+      op: contains_any
+      value: ["ECDHE_SM4_GCM_SM3", "ECC_SM4_GCM_SM3", "ECDHE_SM4_CBC_SM3", "ECC_SM4_CBC_SM3"]
+  - id: NET-03
+    layer: network
+    title: 应停用弱密码套件与弱算法
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: high
+    advice: 移除 RC4/DES/3DES/CBC-SHA1 等弱套件与算法组合
+    logic: { path: network.tls.weak_suites_enabled, op: eq, value: [] }
+  - id: NET-04
+    layer: network
+    title: 通信证书应使用 SM2 算法
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: high
+    advice: 换发 SM2 双证书（签名证书 + 加密证书）
+    logic: { path: network.tls.certificate.algorithm, op: in, value: ["SM2"] }
+  - id: NET-05
+    layer: network
+    title: 通信证书密钥长度应不低于 256 位
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 使用 256 位 SM2 密钥（或等效安全强度）
+    logic: { path: network.tls.certificate.key_length, op: ge, value: 256 }
+  - id: NET-06
+    layer: network
+    title: 通信证书有效期应预留充足时间
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 证书剩余有效期建议不少于 90 天，并建立轮换流程
+    logic: { path: network.tls.certificate.expires_in_days, op: ge, value: 90 }
+    partial: { path: network.tls.certificate.expires_in_days, op: ge, value: 30 }
+  - id: NET-07
+    layer: network
+    title: 通信双方应进行双向身份鉴别
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: high
+    advice: 启用基于 SM2 证书的双向认证
+    logic: { path: network.tls.mutual_auth, op: truthy }
+  - id: NET-08
+    layer: network
+    title: VPN 应采用国密协议
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 使用 IPSec-SM/SSL VPN 国密协议版本
+    logic: { path: network.vpn.protocol, op: in, value: ["IPSEC_SM", "SSLVPN_SM", "TLCP"] }
+    na_when: { path: network.vpn.used, op: falsy }
+  - id: NET-09
+    layer: network
+    title: VPN 应使用国密算法
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: VPN 加密与杂凑使用 SM4/SM3
+    logic: { path: network.vpn.algorithms, op: contains_all, value: ["SM4", "SM3"] }
+    partial: { path: network.vpn.algorithms, op: contains_any, value: ["SM4", "SM3"] }
+    na_when: { path: network.vpn.used, op: falsy }
+  - id: NET-10
+    layer: network
+    title: 无线网络应使用国密增强协议
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 部署 WAPI（或 WPA2-SM4/WPA3-SM4 增强）替代传统 WPA2
+    logic: { path: network.wireless.protocol, op: in, value: ["WAPI", "WPA2-SM4", "WPA3-SM4"] }
+    partial: { path: network.wireless.protocol, op: in, value: ["WPA3"] }
+    na_when: { path: network.wireless.used, op: falsy }
+  - id: NET-11
+    layer: network
+    title: 远程管理应使用加密通道
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: high
+    advice: 使用 SSH（国密改造版）或 TLCP 替代明文远程管理协议
+    logic: { path: network.remote_mgmt.protocol, op: in, value: ["SSH", "TLCP", "HTTPS"] }
+  - id: NET-12
+    layer: network
+    title: 远程管理通道应使用国密算法
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 为远程管理通道配置 SM2/SM3/SM4 算法组合
+    logic: { path: network.remote_mgmt.algorithms, op: contains_any, value: ["SM2", "SM3", "SM4"] }
+  - id: NET-13
+    layer: network
+    title: 网络边界访问控制信息应做完整性保护
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 对访问控制清单使用 SM3 完整性校验
+    logic: { path: network.boundary_acl.integrity_protected, op: truthy }
+  - id: NET-14
+    layer: network
+    title: 边界访问控制完整性算法应合规
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: low
+    advice: 使用 SM3 保护访问控制信息完整性
+    logic: { path: network.boundary_acl.algorithm, op: in, value: ["SM3"] }
+  - id: NET-15
+    layer: network
+    title: 通信数据完整性应使用国密算法
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 通信完整性校验使用 SM3
+    logic: { path: network.tls.integrity, op: in, value: ["SM3"] }
+  - id: NET-16
+    layer: network
+    title: 网络设备间应进行基于密码的鉴别
+    std_ref: "GB/T 39786-2021 · 网络和通信安全层面"
+    risk: medium
+    advice: 网络设备间鉴别采用 SM2 证书等技术
+    logic: { path: network.device_auth.uses_crypto, op: truthy }
+  # ── 设备和计算安全 ────────────────────────────────────────────────
+  - id: DEV-01
+    layer: device
+    title: 系统引导应实施完整性度量
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: high
+    advice: 启用可信启动/引导度量机制
+    logic: { path: device.boot_integrity.measured, op: truthy }
+  - id: DEV-02
+    layer: device
+    title: 引导度量应使用国密算法
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: medium
+    advice: 引导度量使用 SM3
+    logic: { path: device.boot_integrity.algorithm, op: in, value: ["SM3"] }
+  - id: DEV-03
+    layer: device
+    title: 设备远程管理应使用密码技术
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: high
+    advice: 设备远程管理通道启用密码保护
+    logic: { path: device.remote_mgmt_channel.crypto, op: truthy }
+  - id: DEV-04
+    layer: device
+    title: 设备管理通道算法应合规
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: medium
+    advice: 设备管理通道使用 SM2/SM3/SM4
+    logic: { path: device.remote_mgmt_channel.algorithm, op: in, value: ["SM2", "SM3", "SM4"] }
+  - id: DEV-05
+    layer: device
+    title: 应使用经认证的密码模块
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: high
+    advice: 选用取得商用密码产品认证证书的密码模块/产品
+    logic: { path: device.password_module.certified, op: truthy }
+    partial: { path: device.password_module.level, op: in, value: ["一级", "二级", "三级", "四级"] }
+  - id: DEV-06
+    layer: device
+    title: 密码模块安全等级应不低于二级
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: medium
+    advice: 采用二级及以上安全等级的密码模块
+    logic: { path: device.password_module.level, op: in, value: ["二级", "三级", "四级"] }
+  - id: DEV-07
+    layer: device
+    title: 系统日志应做完整性保护
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: high
+    advice: 使用密码技术保护系统日志完整性
+    logic: { path: device.log_integrity.protected, op: truthy }
+  - id: DEV-08
+    layer: device
+    title: 日志完整性算法应合规
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: medium
+    advice: 日志完整性使用 SM3
+    logic: { path: device.log_integrity.algorithm, op: in, value: ["SM3"] }
+  - id: DEV-09
+    layer: device
+    title: 访问控制信息应做完整性保护
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: medium
+    advice: 访问控制信息的完整性使用密码技术保护
+    logic: { path: device.access_control_info.integrity_protected, op: truthy }
+  - id: DEV-10
+    layer: device
+    title: 访问控制完整性算法应合规
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: low
+    advice: 使用 SM3 保护访问控制信息
+    logic: { path: device.access_control_info.algorithm, op: in, value: ["SM3"] }
+  - id: DEV-11
+    layer: device
+    title: 设备间鉴别应基于密码技术
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: medium
+    advice: 设备间采用基于密码的鉴别机制
+    logic: { path: device.device_auth.uses_crypto, op: truthy }
+  - id: DEV-12
+    layer: device
+    title: 设备鉴别算法应合规
+    std_ref: "GB/T 39786-2021 · 设备和计算安全层面"
+    risk: low
+    advice: 设备鉴别使用 SM2/SM3
+    logic: { path: device.device_auth.algorithm, op: in, value: ["SM2", "SM3"] }
+  # ── 应用和数据安全 ────────────────────────────────────────────────
+  - id: APP-01
+    layer: application
+    title: 应用身份鉴别应使用密码技术
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 采用基于 SM2 数字证书或国密口令鉴别技术
+    logic: { path: application.auth.uses_crypto, op: truthy }
+  - id: APP-02
+    layer: application
+    title: 身份鉴别算法应合规
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 停用 MD5/SHA1 等弱算法，改用 SM2/SM3
+    logic: { path: application.auth.algorithm, op: in, value: ["SM2", "SM3"] }
+  - id: APP-03
+    layer: application
+    title: 重要业务应采用多因素鉴别
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: medium
+    advice: 对重要业务操作实施双因素及以上鉴别
+    logic: { path: application.auth.mfa, op: truthy }
+  - id: APP-04
+    layer: application
+    title: 应用应实施访问控制
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 建立应用层访问控制策略并强制执行
+    logic: { path: application.access_control.enforced, op: truthy }
+  - id: APP-05
+    layer: application
+    title: 访问控制信息应做完整性保护
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: medium
+    advice: 应用访问控制信息使用密码技术保护完整性
+    logic: { path: application.access_control.info_integrity, op: truthy }
+  - id: APP-06
+    layer: application
+    title: 应用访问控制完整性算法应合规
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: low
+    advice: 使用 SM3 保护访问控制信息
+    logic: { path: application.access_control.algorithm, op: in, value: ["SM3"] }
+  - id: APP-07
+    layer: application
+    title: 重要数据存储应加密
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 对重要数据（个人信息/业务数据）实施 SM4 加密存储
+    logic: { path: application.data_storage.encrypted, op: truthy }
+  - id: APP-08
+    layer: application
+    title: 存储加密算法应合规
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 使用 SM4 等国密算法替代 DES/3DES 等
+    logic: { path: application.data_storage.algorithm, op: in, value: ["SM4"] }
+  - id: APP-09
+    layer: application
+    title: 存储加密密钥长度应满足要求
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: medium
+    advice: SM4 使用 128 位密钥（拒绝小于 128 位的分组密钥）
+    logic: { path: application.data_storage.key_length, op: ge, value: 128 }
+  - id: APP-10
+    layer: application
+    title: 重要数据传输应加密
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 传输通道实施密码保护（TLCP/国密 SSL）
+    logic: { path: application.data_transmission.encrypted, op: truthy }
+  - id: APP-11
+    layer: application
+    title: 传输保护应使用国密协议
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 传输协议升级为 TLCP
+    logic: { path: application.data_transmission.protocol, op: in, value: ["TLCP"] }
+    partial: { path: application.data_transmission.protocol, op: in, value: ["TLS1.2", "TLS1.3"] }
+  - id: APP-12
+    layer: application
+    title: 重要数据应做完整性保护
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: high
+    advice: 对重要数据实施基于 SM3 的完整性保护
+    logic: { path: application.integrity.protected, op: truthy }
+  - id: APP-13
+    layer: application
+    title: 数据完整性算法应合规
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: medium
+    advice: 完整性保护使用 SM3
+    logic: { path: application.integrity.algorithm, op: in, value: ["SM3"] }
+  - id: APP-14
+    layer: application
+    title: 重要操作应提供不可否认性保护
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: medium
+    advice: 对关键业务操作实施基于 SM2 的数字签名
+    logic: { path: application.non_repudiation.enabled, op: truthy }
+  - id: APP-15
+    layer: application
+    title: 审计日志应做密码保护
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: medium
+    advice: 对审计日志实施完整性/加密保护
+    logic: { path: application.audit_log.protected, op: truthy }
+  - id: APP-16
+    layer: application
+    title: 审计日志保护算法应合规
+    std_ref: "GB/T 39786-2021 · 应用和数据安全层面"
+    risk: low
+    advice: 使用 SM3/SM4 保护审计日志
+    logic: { path: application.audit_log.algorithm, op: in, value: ["SM3", "SM4"] }
+  # ── 密钥管理 ────────────────────────────────────────────────────
+  - id: KEY-01
+    layer: keys
+    title: 应建立密钥管理体系（KMS/HSM）
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: high
+    advice: 建立集中密钥管理系统或采用 HSM 管理密钥全生命周期
+    logic: { path: keys.management.system, op: in, value: ["KMS", "HSM", "KMS/HSM"] }
+  - id: KEY-02
+    layer: keys
+    title: 密钥应使用硬件密码模块保护
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: high
+    advice: 关键密钥由 HSM 产生并存储，不以明文落盘
+    logic: { path: keys.management.hsm_used, op: truthy }
+  - id: KEY-03
+    layer: keys
+    title: 密钥产生应使用合规随机源
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: high
+    advice: 使用物理噪声源或经认证密码模块产生密钥，禁止 math.random 等伪随机
+    logic: { path: keys.generation.source, op: in, value: ["物理噪声源", "密码模块", "真随机源"] }
+  - id: KEY-04
+    layer: keys
+    title: 密钥存储应加密
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: high
+    advice: 密钥存储加密并实施访问控制
+    logic: { path: keys.storage.encrypted, op: truthy }
+  - id: KEY-05
+    layer: keys
+    title: 密钥存储应由硬件保护
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: high
+    advice: 密钥存储于 HSM/密码模块内
+    logic: { path: keys.storage.hsm_backed, op: truthy }
+  - id: KEY-06
+    layer: keys
+    title: 密钥分发应受保护
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: high
+    advice: 使用 SM2 信封/密钥协商等方式分发密钥
+    logic: { path: keys.distribution.protected, op: truthy }
+  - id: KEY-07
+    layer: keys
+    title: 密钥分发方式应合规
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: medium
+    advice: 避免明文拷贝/邮件传递密钥
+    logic: { path: keys.distribution.method, op: in, value: ["SM2信封", "密钥协商", "KMS分发"] }
+  - id: KEY-08
+    layer: keys
+    title: 应建立密钥轮换策略
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: medium
+    advice: 制定并执行密钥轮换制度
+    logic: { path: keys.rotation.policy, op: truthy }
+  - id: KEY-09
+    layer: keys
+    title: 密钥轮换周期应合理
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: medium
+    advice: 轮换周期建议不超过 365 天
+    logic: { path: keys.rotation.period_days, op: between, value: [1, 365] }
+    partial: { path: keys.rotation.period_days, op: between, value: [1, 730] }
+  - id: KEY-10
+    layer: keys
+    title: 密钥销毁应有规范流程
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: medium
+    advice: 建立密钥销毁规程并留存销毁记录
+    logic: { path: keys.destruction.procedure, op: truthy }
+  - id: KEY-11
+    layer: keys
+    title: 密钥备份应加密存储
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: medium
+    advice: 密钥备份加密保存并与生产环境隔离
+    logic: { path: keys.backup.encrypted, op: truthy }
+    partial: { path: keys.backup.exists, op: truthy }
+  - id: KEY-12
+    layer: keys
+    title: 密钥管理职责应分离
+    std_ref: "GB/T 39786-2021 · 密钥管理"
+    risk: medium
+    advice: 密钥的产生/分发/使用/销毁职责分离
+    logic: { path: keys.separation.duties_separated, op: truthy }
+  # ── 安全管理 ────────────────────────────────────────────────────
+  - id: MGT-01
+    layer: management
+    title: 应制定密码应用安全管理制度
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: medium
+    advice: 制定覆盖密码应用全流程的管理制度
+    logic: { path: management.policy.documented, op: truthy }
+  - id: MGT-02
+    layer: management
+    title: 制度应经审批并发布
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: low
+    advice: 制度文件履行审批发布流程
+    logic: { path: management.policy.approved, op: truthy }
+  - id: MGT-03
+    layer: management
+    title: 相关人员应接受密码应用培训
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: medium
+    advice: 定期开展密码应用与安全意识培训
+    logic: { path: management.personnel.trained, op: truthy }
+  - id: MGT-04
+    layer: management
+    title: 关键岗位应进行背景审查
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: medium
+    advice: 对密钥管理岗等关键岗位实施背景审查
+    logic: { path: management.personnel.background_check, op: truthy }
+  - id: MGT-05
+    layer: management
+    title: 应制定密码安全应急预案
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: medium
+    advice: 制定密钥泄露/算法失效等应急预案
+    logic: { path: management.emergency.plan, op: truthy }
+  - id: MGT-06
+    layer: management
+    title: 应定期开展应急演练
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: low
+    advice: 每年至少一次密码安全应急演练
+    logic: { path: management.emergency.drill_done, op: truthy }
+  - id: MGT-07
+    layer: management
+    title: 应按规定开展密评
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: high
+    advice: 按要求委托测评机构开展商用密码应用安全性评估
+    logic: { path: management.assessment.done, op: truthy }
+    partial: { path: management.assessment.last_date, op: truthy }
+  - id: MGT-08
+    layer: management
+    title: 密码产品/服务提供商应具备资质
+    std_ref: "GB/T 39786-2021 · 安全管理"
+    risk: medium
+    advice: 核验供应商商用密码产品认证与资质
+    logic: { path: management.vendor.qualified, op: truthy }

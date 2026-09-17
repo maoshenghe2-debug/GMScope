@@ -1,0 +1,61 @@
+# 示例系统 A · 基本合规（用于演示与测试断言；数据为虚构）
+# 参见 schemas/system.schema.json 与 docs/quickstart
+system:
+  name: "示例系统 A · 政务云公文交换平台"
+  owner: "示例单位（虚构）"
+  level: 3
+  evaluated_at: "2026-09-17"
+
+physical:
+  access_control: { exists: true, crypto_protection: true, algorithm: "SM4", integrity: "SM3" }
+  video_surveillance: { exists: true, storage_encrypted: true, algorithm: "SM4", retention_days: 90 }
+  zone_defined: true
+  maintenance: { protected: true }
+
+network:
+  tls:
+    protocols: ["TLCP", "TLS1.2"]
+    sm_suites: ["ECDHE_SM4_GCM_SM3", "ECC_SM4_CBC_SM3"]
+    weak_suites_enabled: []
+    certificate: { algorithm: "SM2", key_length: 256, expires_in_days: 60 }
+    mutual_auth: true
+    integrity: "SM3"
+  vpn: { used: true, protocol: "IPSEC_SM", algorithms: ["SM4", "SM3"] }
+  wireless: { used: false, protocol: null }
+  remote_mgmt: { protocol: "SSH", algorithms: ["SM2", "SM3"] }
+  boundary_acl: { integrity_protected: true, algorithm: "SM3" }
+  device_auth: { uses_crypto: true, algorithm: "SM2" }
+
+device:
+  boot_integrity: { measured: true, algorithm: "SM3" }
+  remote_mgmt_channel: { crypto: true, algorithm: "SM2" }
+  password_module: { certified: true, level: "二级" }
+  log_integrity: { protected: true, algorithm: "SM3" }
+  access_control_info: { integrity_protected: true, algorithm: "SM3" }
+  device_auth: { uses_crypto: true, algorithm: "SM2" }
+
+application:
+  auth: { uses_crypto: true, algorithm: "SM2", mfa: true, method: "SM2 数字证书 + 口令" }
+  access_control: { enforced: true, info_integrity: true, algorithm: "SM3" }
+  data_storage: { encrypted: true, algorithm: "SM4", key_length: 128 }
+  data_transmission: { encrypted: true, protocol: "TLCP" }
+  integrity: { protected: true, algorithm: "SM3" }
+  non_repudiation: { enabled: true, algorithm: "SM2" }
+  audit_log: { protected: true, algorithm: "SM3" }
+
+keys:
+  management: { system: "KMS", hsm_used: true }
+  generation: { source: "物理噪声源" }
+  storage: { encrypted: true, hsm_backed: true }
+  distribution: { protected: true, method: "SM2信封" }
+  rotation: { policy: true, period_days: 365 }
+  destruction: { procedure: true }
+  backup: { exists: true, encrypted: true }
+  separation: { duties_separated: true }
+
+management:
+  policy: { documented: true, approved: true }
+  personnel: { trained: true, background_check: true }
+  emergency: { plan: true, drill_done: true }
+  assessment: { done: true, last_date: "2026-03-01" }
+  vendor: { qualified: true }

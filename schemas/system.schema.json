@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GMScope 系统描述（密评自查输入）",
+  "description": "用于 gmscope audit 的输入清单；字段结构见 src/gmscope/audit/checks_data.yaml 中检查项的 path。",
+  "type": "object",
+  "required": ["system"],
+  "properties": {
+    "system": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string" },
+        "level": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "evaluated_at": { "type": "string" }
+      }
+    },
+    "physical": { "type": "object" },
+    "network": { "type": "object" },
+    "device": { "type": "object" },
+    "application": { "type": "object" },
+    "keys": { "type": "object" },
+    "management": { "type": "object" }
+  }
+}

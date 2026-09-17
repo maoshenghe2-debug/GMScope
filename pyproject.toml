@@ -26,14 +26,15 @@ dependencies = [
   "typer>=0.12",
   "rich>=13.7",
   "jinja2>=3.1",
+  "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
 crypto = ["gmssl>=3.2.2", "cryptography>=42.0"]
 pcap = ["scapy>=2.5"]
 stats = ["numpy>=1.26"]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
-all = ["gmssl>=3.2.2", "cryptography>=42.0", "scapy>=2.5", "numpy>=1.26", "pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5", "jsonschema>=4.20"]
+all = ["gmssl>=3.2.2", "cryptography>=42.0", "scapy>=2.5", "numpy>=1.26", "pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5", "jsonschema>=4.20"]
 
 [project.scripts]
 gmscope = "gmscope.cli:main"

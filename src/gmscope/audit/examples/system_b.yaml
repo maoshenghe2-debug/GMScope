@@ -1,0 +1,61 @@
+# 示例系统 B · 多处违规（用于演示与测试断言；数据为虚构）
+# 典型「改造前」传统系统：弱算法、明文传输、密钥管理缺失
+system:
+  name: "示例系统 B · 某传统业务系统（国密改造前）"
+  owner: "示例单位（虚构）"
+  level: 3
+  evaluated_at: "2026-09-17"
+
+physical:
+  access_control: { exists: true, crypto_protection: false, algorithm: "AES", integrity: "MD5" }
+  video_surveillance: { exists: true, storage_encrypted: false, algorithm: "无", retention_days: 7 }
+  zone_defined: false
+  maintenance: { protected: false }
+
+network:
+  tls:
+    protocols: ["TLS1.1", "TLS1.0"]
+    sm_suites: []
+    weak_suites_enabled: ["RSA_WITH_AES_128_CBC_SHA", "DES_CBC3_SHA"]
+    certificate: { algorithm: "RSA", key_length: 2048, expires_in_days: 45 }
+    mutual_auth: false
+    integrity: "SHA1"
+  vpn: { used: false, protocol: null, algorithms: [] }
+  wireless: { used: true, protocol: "WPA2" }
+  remote_mgmt: { protocol: "TELNET", algorithms: ["无"] }
+  boundary_acl: { integrity_protected: false, algorithm: "MD5" }
+  device_auth: { uses_crypto: false, algorithm: "无" }
+
+device:
+  boot_integrity: { measured: false, algorithm: "无" }
+  remote_mgmt_channel: { crypto: false, algorithm: "无" }
+  password_module: { certified: false, level: "无" }
+  log_integrity: { protected: false, algorithm: "MD5" }
+  access_control_info: { integrity_protected: false, algorithm: "MD5" }
+  device_auth: { uses_crypto: false, algorithm: "无" }
+
+application:
+  auth: { uses_crypto: false, algorithm: "MD5", mfa: false, method: "口令（本地 MD5 存储）" }
+  access_control: { enforced: false, info_integrity: false, algorithm: "无" }
+  data_storage: { encrypted: false, algorithm: "DES", key_length: 56 }
+  data_transmission: { encrypted: false, protocol: "HTTP" }
+  integrity: { protected: false, algorithm: "MD5" }
+  non_repudiation: { enabled: false, algorithm: "无" }
+  audit_log: { protected: false, algorithm: "无" }
+
+keys:
+  management: { system: "无", hsm_used: false }
+  generation: { source: "软件随机数（math.random）" }
+  storage: { encrypted: false, hsm_backed: false }
+  distribution: { protected: false, method: "明文拷贝" }
+  rotation: { policy: false, period_days: 0 }
+  destruction: { procedure: false }
+  backup: { exists: false, encrypted: false }
+  separation: { duties_separated: false }
+
+management:
+  policy: { documented: false, approved: false }
+  personnel: { trained: false, background_check: false }
+  emergency: { plan: false, drill_done: false }
+  assessment: { done: false, last_date: null }
+  vendor: { qualified: false }

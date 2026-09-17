@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GMScope 密评自查报告（AuditReport）",
+  "type": "object",
+  "required": ["tool", "tool_version", "generated_at", "target", "summary", "findings", "meta"],
+  "properties": {
+    "tool": { "const": "gmscope" },
+    "tool_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "target": { "type": "object" },
+    "summary": {
+      "type": "object",
+      "required": ["overall_score", "counts", "risk_counts", "layers"],
+      "properties": {
+        "overall_score": { "type": ["number", "null"] },
+        "counts": {
+          "type": "object",
+          "required": ["符合", "部分符合", "不符合", "不适用", "total"]
+        },
+        "risk_counts": {
+          "type": "object",
+          "required": ["high", "medium", "low"]
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "name", "score", "counts"],
+            "properties": {
+              "key": { "type": "string" },
+              "name": { "type": "string" },
+              "score": { "type": ["number", "null"] },
+              "counts": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["check_id", "layer", "title", "std_ref", "risk", "verdict", "advice"],
+        "properties": {
+          "check_id": { "type": "string", "pattern": "^[A-Z]{3}-[0-9]{2}$" },
+          "layer": { "type": "string" },
+          "title": { "type": "string", "minLength": 1 },
+          "std_ref": { "type": "string", "minLength": 1 },
+          "risk": { "enum": ["high", "medium", "low"] },
+          "verdict": { "enum": ["符合", "部分符合", "不符合", "不适用"] },
+          "actual": { "type": ["string", "number", "boolean", "null", "array"] },
+          "advice": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "meta": { "type": "object" }
+  }
+}
