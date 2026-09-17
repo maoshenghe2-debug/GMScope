@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as jsonlib
+import sys
 
 import typer
 from rich.console import Console
@@ -11,6 +12,24 @@ from rich.table import Table
 from . import __version__
 from .crosscheck import run_crosscheck
 from .selftest import run_selftest
+
+
+def _configure_stdio() -> None:
+    """重定向场景（CI / 管道）下强制 UTF-8 输出。
+
+    Windows 运行器默认代码页（cp1252/cp936）无法编码中文与框图字符，
+    会导致 Rich 输出抛 UnicodeEncodeError；交互式控制台不受影响
+    （Rich 在真控制台上走 Windows API 渲染）。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if stream is not None and not stream.isatty():
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 —— 老环境/特殊流不支持 reconfigure 时静默跳过
+            pass
+
+
+_configure_stdio()
 
 app = typer.Typer(
     help="GMScope · 国密应用安全检测与协议分析平台（SM2/SM3/SM4 · TLCP · 密评）",
