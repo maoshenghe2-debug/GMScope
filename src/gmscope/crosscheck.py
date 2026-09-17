@@ -170,8 +170,10 @@ def crosscheck_sm2_gmssl(n: int = 16) -> CrossResult:
     for _ in range(n):
         kp = SM2.generate()
         msg = rng.randbytes(rng.choice([1, 16, 32, 64, 100, 255]))
-        g_full = g_sm2.CryptSM2(private_key=kp.private_key, public_key=kp.public_key)
-        g_pub = g_sm2.CryptSM2(private_key="", public_key=kp.public_key)
+        # 注意：gmssl 的 CryptSM2 默认 mode=0（C1C2C3），而本库统一 C1C3C2（mode=1）——
+        # 两侧必须显式对齐，否则加解密步骤会静默错位 / C3 完整性校验失败。
+        g_full = g_sm2.CryptSM2(private_key=kp.private_key, public_key=kp.public_key, mode=1)
+        g_pub = g_sm2.CryptSM2(private_key="", public_key=kp.public_key, mode=1)
 
         if g_full._sm3_z(msg) == kp.compute_e(msg).hex():  # ① e 值互证
             matched += 1
@@ -186,7 +188,7 @@ def crosscheck_sm2_gmssl(n: int = 16) -> CrossResult:
             matched += 1
         checks += 1
 
-        if g_sm2.CryptSM2(private_key=kp.private_key, public_key="").decrypt(kp.encrypt(msg)) == msg:  # ④
+        if g_sm2.CryptSM2(private_key=kp.private_key, public_key="", mode=1).decrypt(kp.encrypt(msg)) == msg:  # ④
             matched += 1
         checks += 1
 

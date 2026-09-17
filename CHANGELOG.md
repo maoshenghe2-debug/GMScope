@@ -14,6 +14,9 @@
 - `gmscope crosscheck` 新增 SM2 五项对照与 SM4-GCM 对照；`gmscope selftest` 纳入 KAT
 - `scripts/gen_kat.py`：KAT 生成器（OpenSSL / cryptography 双源，可复现）
 
+### Fixed
+- 交叉验证 SM2 加解密步骤：gmssl 实例未显式 `mode=1` 导致密文顺序错位（gmssl 默认 C1C2C3 vs 本库 C1C3C2）——已对齐，并补充「全量交叉验证入口」回归测试（CI demo 步骤同步覆盖）
+
 ### Planned
 - v0.2.0：TLCP 离线解析 · API 文档
 - v0.5.0：密评检测引擎（GB/T 39786 四层面 60+ 检查项）+ HTML 报告
