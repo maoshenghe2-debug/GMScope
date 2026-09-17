@@ -25,8 +25,9 @@ def _configure_stdio() -> None:
         try:
             if stream is not None and not stream.isatty():
                 stream.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:  # noqa: BLE001 —— 老环境/特殊流不支持 reconfigure 时静默跳过
-            pass
+        except (AttributeError, ValueError, OSError):
+            # 老环境/特殊流不支持 reconfigure 时静默跳过（如 pythonw、已关闭的管道）
+            continue
 
 
 _configure_stdio()
