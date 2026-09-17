@@ -1,0 +1,159 @@
+"""与成熟库（gmssl / cryptography）的交叉验证。
+
+用途：为「教学对照实现」提供独立可信度证据 —— 以随机用例批量比对，
+双方一致即认为实现正确（两个独立实现同时犯相同错误的概率可忽略）。
+
+约定：
+- gmssl 的 ``crypt_ecb`` 自带 PKCS#7 填充，对照时取其首个分组；
+- cryptography 依赖 OpenSSL 3.x 提供 SM4/SM3（缺能力时自动跳过并说明）。
+"""
+
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass
+
+from .crypto.sm3 import sm3_hash
+from .crypto.sm4 import SM4
+
+_SEED = 20260917
+_LENGTHS = [0, 1, 7, 15, 16, 31, 55, 56, 63, 64, 65, 100, 255, 256, 511, 512, 1000, 4096]
+
+
+@dataclass
+class CrossResult:
+    """一次交叉验证的结果。"""
+
+    engine: str
+    algorithm: str
+    cases: int
+    matched: int
+    note: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return self.cases > 0 and self.matched == self.cases
+
+
+# ---------------------------------------------------------------- 依赖加载
+
+
+def _load_gmssl():
+    try:
+        from gmssl import sm3 as g_sm3
+        from gmssl import sm4 as g_sm4
+
+        return g_sm3, g_sm4
+    except ImportError:
+        return None, None
+
+
+def _load_cryptography():
+    try:
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+        return Cipher, algorithms, modes, hashes
+    except ImportError:
+        return None, None, None, None
+
+
+# ---------------------------------------------------------------- SM3
+
+
+def crosscheck_sm3_gmssl(n: int = 64) -> CrossResult:
+    g_sm3, _ = _load_gmssl()
+    if g_sm3 is None:
+        return CrossResult("gmssl", "SM3", 0, 0, "未安装 gmssl，跳过")
+    rng = random.Random(_SEED)
+    matched = 0
+    for _ in range(n):
+        data = rng.randbytes(rng.choice(_LENGTHS))
+        if g_sm3.sm3_hash(list(data)) == sm3_hash(data).hex():
+            matched += 1
+    return CrossResult("gmssl", "SM3", n, matched)
+
+
+def crosscheck_sm3_cryptography(n: int = 64) -> CrossResult:
+    _, _, _, hashes = _load_cryptography()
+    if hashes is None or not hasattr(hashes, "SM3"):
+        return CrossResult("cryptography", "SM3", 0, 0, "当前环境不支持 SM3（需 OpenSSL 3.x）")
+    rng = random.Random(_SEED + 1)
+    matched = 0
+    try:
+        for _ in range(n):
+            data = rng.randbytes(rng.choice(_LENGTHS))
+            h = hashes.Hash(hashes.SM3())
+            h.update(data)
+            if h.finalize().hex() == sm3_hash(data).hex():
+                matched += 1
+    except Exception as exc:  # noqa: BLE001 —— OpenSSL 能力缺失等
+        return CrossResult("cryptography", "SM3", 0, 0, f"运行失败：{exc}")
+    return CrossResult("cryptography", "SM3", n, matched)
+
+
+# ---------------------------------------------------------------- SM4
+
+
+def crosscheck_sm4_gmssl(n: int = 64) -> CrossResult:
+    _, g_sm4 = _load_gmssl()
+    if g_sm4 is None:
+        return CrossResult("gmssl", "SM4-ECB", 0, 0, "未安装 gmssl，跳过")
+    rng = random.Random(_SEED + 2)
+    matched = 0
+    for _ in range(n):
+        key = rng.randbytes(16)
+        pt = rng.randbytes(16)
+        c = g_sm4.CryptSM4()
+        c.set_key(key, g_sm4.SM4_ENCRYPT)
+        theirs = c.crypt_ecb(pt)[:16]  # 库自带 PKCS#7 填充，取首个分组
+        if theirs == SM4(key).encrypt_block(pt):
+            matched += 1
+    return CrossResult("gmssl", "SM4-ECB", n, matched)
+
+
+def crosscheck_sm4_cryptography(n: int = 64) -> CrossResult:
+    Cipher, algorithms, modes, _ = _load_cryptography()
+    if Cipher is None or not hasattr(algorithms, "SM4"):
+        return CrossResult("cryptography", "SM4", 0, 0, "当前环境不支持 SM4（需 OpenSSL 3.x）")
+
+    rng = random.Random(_SEED + 3)
+    matched = checks = 0
+    try:
+        for _ in range(n):
+            key = rng.randbytes(16)
+            pt = rng.randbytes(16)
+            iv = rng.randbytes(16)
+            sm4 = SM4(key)
+
+            enc = Cipher(algorithms.SM4(key), modes.ECB()).encryptor()
+            if enc.update(pt) + enc.finalize() == sm4.encrypt_block(pt):
+                matched += 1
+            checks += 1
+
+            cbc = Cipher(algorithms.SM4(key), modes.CBC(iv)).encryptor()
+            if cbc.update(pt) + cbc.finalize() == sm4.encrypt_cbc(pt, iv, pad=False):
+                matched += 1
+            checks += 1
+
+            msg = rng.randbytes(rng.choice([0, 1, 15, 16, 17, 33, 64, 100]))
+            ctr = Cipher(algorithms.SM4(key), modes.CTR(iv)).encryptor()
+            if ctr.update(msg) + ctr.finalize() == sm4.crypt_ctr(msg, iv):
+                matched += 1
+            checks += 1
+    except Exception as exc:  # noqa: BLE001
+        return CrossResult("cryptography", "SM4-ECB/CBC/CTR", 0, 0, f"运行失败：{exc}")
+    return CrossResult("cryptography", "SM4-ECB/CBC/CTR", checks, matched)
+
+
+# ---------------------------------------------------------------- 汇总
+
+
+def run_crosscheck(n: int = 64) -> list[CrossResult]:
+    """运行全部交叉验证项。"""
+    return [
+        crosscheck_sm3_gmssl(n),
+        crosscheck_sm3_cryptography(n),
+        crosscheck_sm4_gmssl(n),
+        crosscheck_sm4_cryptography(n),
+    ]
