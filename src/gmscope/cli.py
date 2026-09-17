@@ -131,6 +131,42 @@ def crosscheck(
 
 
 @app.command()
+def bench(
+    full: bool = typer.Option(False, "--full", help="完整数据集（时长约为默认的 8 倍）"),
+    as_json: bool = typer.Option(False, "--json", help="以 JSON 输出"),
+) -> None:
+    """性能基准：SM3 / SM4（ECB/CBC/GCM）/ SM2，含参考库对照。"""
+    from .bench import run_bench
+
+    results = run_bench(quick=not full)
+    if as_json:
+        payload = {
+            "tool": "gmscope",
+            "version": __version__,
+            "results": [
+                {
+                    "name": r.name,
+                    "impl": r.impl,
+                    "value": round(r.value, 3),
+                    "unit": r.unit,
+                    "detail": r.detail,
+                }
+                for r in results
+            ],
+        }
+        console.print_json(jsonlib.dumps(payload, ensure_ascii=False))
+    else:
+        table = Table(title=f"GMScope 性能基准（本库为纯 Python 教学对照实现）· v{__version__}")
+        table.add_column("算法", style="cyan")
+        table.add_column("实现")
+        table.add_column("数值", justify="right")
+        table.add_column("明细", style="dim")
+        for r in results:
+            table.add_row(r.name, r.impl, f"{r.value:.2f} {r.unit}", r.detail)
+        console.print(table)
+
+
+@app.command()
 def demo() -> None:
     """离线一键演示：标准向量自检 + 交叉验证 + 下一步指引（无需网络）。"""
     console.rule("[bold]GMScope 离线演示[/bold]")
