@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gmscope"
+version = "0.1.0"
+description = "GMScope · 国密应用安全检测与协议分析平台（SM2/SM3/SM4 · TLCP · 密评）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Maosheng He (maoshenghe2-debug)" },
+]
+keywords = ["sm2", "sm3", "sm4", "tlcp", "cryptography", "security", "compliance", "国密"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security :: Cryptography",
+]
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.7",
+  "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+crypto = ["gmssl>=3.2.2", "cryptography>=42.0"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+all = ["gmssl>=3.2.2", "cryptography>=42.0", "pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+
+[project.scripts]
+gmscope = "gmscope.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/maoshenghe2-debug/GMScope"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gmscope"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not slow' -q"
+markers = [
+  "slow: 慢速测试（如百万次迭代向量），默认跳过，使用 -m slow 运行",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
