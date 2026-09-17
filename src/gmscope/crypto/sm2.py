@@ -187,10 +187,13 @@ class SM2:
         payload = bytes(data)
         if not payload:
             raise SM2Error("不支持加密空消息（gmssl 内核限制）")
-        out = self._c.encrypt(payload)
-        if out is None:
-            raise SM2Error("加密失败（KDF 输出全零，请更换随机数重试）")
-        return out
+        # gmssl 内核在 KDF 输出退化（全零）时返回 None——短消息下概率不可忽略
+        # （约 1/256 @ 1 字节），此处自动更换随机数重试，避免偶发失败。
+        for _ in range(8):
+            out = self._c.encrypt(payload)
+            if out is not None:
+                return out
+        raise SM2Error("加密失败：连续 8 次 KDF 输出退化，请检查运行环境随机性")
 
     def decrypt(self, data: bytes) -> bytes:
         """解密（C1C3C2），并独立校验 C3 完整性。不支持空明文密文。"""

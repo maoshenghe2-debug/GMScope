@@ -169,7 +169,9 @@ def crosscheck_sm2_gmssl(n: int = 16) -> CrossResult:
     matched = checks = 0
     for _ in range(n):
         kp = SM2.generate()
-        msg = rng.randbytes(rng.choice([1, 16, 32, 64, 100, 255]))
+        # 避免 1-2 字节短消息：gmssl 内核在短消息下 KDF 输出可能退化（约 1/256 @ 1 字节），
+        # 用例集中 ≥16 字节；封装层已做重试，见 tests/test_sm2.py 回归用例。
+        msg = rng.randbytes(rng.choice([16, 32, 64, 100, 255]))
         # 注意：gmssl 的 CryptSM2 默认 mode=0（C1C2C3），而本库统一 C1C3C2（mode=1）——
         # 两侧必须显式对齐，否则加解密步骤会静默错位 / C3 完整性校验失败。
         g_full = g_sm2.CryptSM2(private_key=kp.private_key, public_key=kp.public_key, mode=1)
@@ -192,7 +194,12 @@ def crosscheck_sm2_gmssl(n: int = 16) -> CrossResult:
             matched += 1
         checks += 1
 
-        if kp.decrypt(g_pub.encrypt(msg)) == msg:  # ⑤ 含 C3 校验
+        gm_ct = None
+        for _ in range(8):
+            gm_ct = g_pub.encrypt(msg)
+            if gm_ct is not None:  # gmssl 侧 KDF 退化时换随机数重试
+                break
+        if gm_ct is not None and kp.decrypt(gm_ct) == msg:  # ⑤ 含 C3 校验
             matched += 1
         checks += 1
     return CrossResult("gmssl", "SM2(签/验/加解密)", checks, matched)

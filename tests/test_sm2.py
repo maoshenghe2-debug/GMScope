@@ -65,6 +65,23 @@ class TestRoundtrip:
         with pytest.raises(SM2Error):
             kp.encrypt(b"")
 
+    def test_encrypt_retries_on_kdf_degenerate(self, monkeypatch):
+        """回归：gmssl 内核 KDF 退化返回 None 时，封装层应自动更换随机数重试。"""
+        kp = SM2.generate()
+        real = kp._c.encrypt
+        calls = {"n": 0}
+
+        def flaky(data):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return None  # 模拟一次 KDF 退化
+            return real(data)
+
+        monkeypatch.setattr(kp._c, "encrypt", flaky)
+        ct = kp.encrypt(b"retry-case")
+        assert calls["n"] >= 2
+        assert kp.decrypt(ct) == b"retry-case"
+
     def test_decrypt_detects_c2_and_c3_tamper(self):
         kp = SM2.generate()
         ct = bytearray(kp.encrypt(b"integrity-check"))
