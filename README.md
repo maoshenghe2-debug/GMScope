@@ -23,6 +23,10 @@ gmscope crosscheck
 
 # ④ 性能基准（本库 vs 参考库；--full 完整数据集）
 gmscope bench
+
+# ⑤ TLCP 协议画像（内置合成样本，离线可跑）
+gmscope tlcp-fixture demo.pcap
+gmscope parse demo.pcap
 ```
 
 ## 功能一览（v0.2.0-dev）
@@ -33,7 +37,8 @@ gmscope bench
 - ✅ **自建 KAT 冻结向量**：SM2 经 OpenSSL 双向互验、SM4-GCM 经 cryptography 交叉验证（`scripts/gen_kat.py` 可复现）
 - ✅ **交叉验证**：`gmscope crosscheck` 与 `gmssl`、`cryptography` 双库对照（SM3 / SM4 / SM4-GCM / SM2 · 随机用例批量比对）
 - ✅ **性能基准**：`gmscope bench`（SM3 / SM4(ECB/CBC/GCM) / SM2，本库 vs 参考库）
-- 🔜 v0.2.0：TLCP 记录层/握手解析（离线 PCAP）· API 文档
+- ✅ **TLCP 离线解析**：记录层 / 握手（ClientHello / ServerHello / 双证书识别 · SM2 OID 检测）；`gmscope parse <pcap|bin>` 协议画像（`--json`）；`gmscope tlcp-fixture` 全合成演示样本生成器
+- 🔜 v0.2.0：API 文档 · 更多演示素材
 - 🔜 v0.5.0：密评检查项引擎（GB/T 39786 四个层面 60+ 检查项）+ HTML 差距分析报告
 - 🔜 v1.0.0：侧信道测评演示 · 密钥管理演示 · HTTP API · 完整文档与演示素材
 

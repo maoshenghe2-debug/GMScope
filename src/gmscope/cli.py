@@ -167,18 +167,105 @@ def bench(
 
 
 @app.command()
+def parse(
+    path: str = typer.Argument(..., help="PCAP 文件或原始记录流（.bin）路径"),
+    as_json: bool = typer.Option(False, "--json", help="以 JSON 输出完整协议画像"),
+    limit: int = typer.Option(512, "--limit", min=1, max=4096, help="最多解析的记录条数"),
+) -> None:
+    """离线解析 TLCP/TLS 协议画像（记录层 + 握手 + 双证书识别）。"""
+    from pathlib import Path
+
+    from .protocol.pcap import extract_tcp_payloads, read_pcap
+    from .protocol.tlcp import analyze_tlcp
+
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        console.print(f"[red]无法读取 {path}：{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
+    if raw[:4] in (b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4", b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\x3c\x4d"):
+        frames = read_pcap(raw)
+        stream = extract_tcp_payloads(frames)
+        source = f"PCAP：{len(frames)} 帧 → TCP 载荷 {len(stream)} 字节（按捕获顺序拼接）"
+    else:
+        stream = raw
+        source = f"原始记录流：{len(stream)} 字节"
+
+    analysis = analyze_tlcp(stream, max_records=limit)
+
+    if as_json:
+        payload = {"tool": "gmscope", "version": __version__, "source": source, **analysis}
+        console.print_json(jsonlib.dumps(payload, ensure_ascii=False))
+    else:
+        summary = analysis["summary"]
+        console.rule("[bold]TLCP 协议画像[/bold]")
+        console.print(f"来源：{source}")
+        if summary["is_tlcp"]:
+            console.print("[green]判定：TLCP 流量（0x0101）[/green]")
+        else:
+            console.print("[yellow]判定：非 TLCP（未发现 0x0101 版本号）[/yellow]")
+        console.print(
+            f"记录 {summary['record_count']} 条 · 握手消息 {summary['handshake_count']} 条 · "
+            f"加密记录 {summary['encrypted_record_count']} 条"
+        )
+        if summary["negotiated_cipher_suite"]:
+            console.print(f"协商套件：{summary['negotiated_cipher_suite']}（{summary['negotiated_cipher_suite_name']}）")
+        if summary["offered_cipher_suites"]:
+            console.print(f"客户端提供：{', '.join(summary['offered_cipher_suites'])}")
+        dual = "是（签名证书 + 加密证书）" if summary["dual_certificate"] else "否"
+        console.print(f"双证书：{dual} · 证书数量 {summary['certificate_count']}")
+
+        table = Table(title="握手消息（明文部分）")
+        table.add_column("类型", style="cyan", no_wrap=True)
+        table.add_column("要点", overflow="fold")
+        for h in analysis["handshake"]:
+            htype = h["type"]
+            if htype == "client_hello":
+                detail = f"版本 {h.get('version_name')} · 套件 {len(h.get('cipher_suites', []))} 个"
+            elif htype == "server_hello":
+                detail = f"版本 {h.get('version_name')} · 选定 {h.get('cipher_suite')}（{h.get('cipher_suite_name')}）"
+            elif htype == "certificate":
+                certs = h.get("certificates", [])
+                sm2 = "SM2 OID 已识别" if certs and all(c.get("has_sm2_oid") for c in certs) else "SM2 OID 未识别"
+                detail = f"{len(certs)} 张证书 · {sm2}"
+            else:
+                detail = f"{h.get('length', '-')} 字节"
+            table.add_row(htype, detail)
+        console.print(table)
+
+    for warning in analysis["warnings"]:
+        console.print(f"[yellow]⚠ {warning}[/yellow]")
+
+
+@app.command("tlcp-fixture")
+def tlcp_fixture(
+    out: str = typer.Argument("tlcp_demo.pcap", help="输出文件路径"),
+    raw: bool = typer.Option(False, "--raw", help="输出原始记录流（非 PCAP）"),
+) -> None:
+    """生成全合成 TLCP 演示样本（离线；用于 parse 上手与演示）。"""
+    from pathlib import Path
+
+    from .protocol.fixtures import build_tlcp_demo_pcap, build_tlcp_demo_stream
+
+    data = build_tlcp_demo_stream() if raw else build_tlcp_demo_pcap()
+    Path(out).write_bytes(data)
+    console.print(f"已生成 {out}（{len(data)} 字节）— 试用：gmscope parse {out}")
+
+
+@app.command()
 def demo() -> None:
     """离线一键演示：标准向量自检 + 交叉验证 + 下一步指引（无需网络）。"""
     console.rule("[bold]GMScope 离线演示[/bold]")
     results = run_selftest()
     passed = sum(1 for r in results if r.passed)
-    console.print(f"① 标准向量自检：通过 {passed}/{len(results)}（GM/T 0002/0004）")
+    console.print(f"① 标准向量自检：通过 {passed}/{len(results)}（GM/T 0002/0004 + 自建 KAT）")
     xr = run_crosscheck(n=16)
     for r in xr:
         state = "跳过" if r.cases == 0 else ("一致" if r.ok else "不一致")
         mark = "[green]" if r.ok else "[yellow]" if r.cases == 0 else "[red]"
         console.print(f"   ② 交叉验证 · {r.engine} {r.algorithm}：{mark}{state}[/]({r.matched}/{r.cases})")
-    console.print("③ 下一步（v0.2.0）：`gmscope parse <pcap>` 协议画像 · `gmscope audit` 密评自查")
+    console.print("③ 试用 TLCP 协议画像：`gmscope tlcp-fixture demo.pcap` → `gmscope parse demo.pcap`（离线）")
     ok = passed == len(results) and all((not r.cases) or r.ok for r in xr)
     if not ok:
         raise typer.Exit(code=1)

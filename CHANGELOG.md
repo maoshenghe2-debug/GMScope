@@ -13,12 +13,16 @@
 - `gmscope bench`：SM3 / SM4(ECB/CBC/GCM) / SM2 性能基准（本库 vs gmssl vs cryptography）
 - `gmscope crosscheck` 新增 SM2 五项对照与 SM4-GCM 对照；`gmscope selftest` 纳入 KAT
 - `scripts/gen_kat.py`：KAT 生成器（OpenSSL / cryptography 双源，可复现）
+- TLCP 离线解析：记录层 / 握手消息 / 协议画像；双证书（签名+加密）与国密套件识别（0xE011/E013/E051/E053，编号对齐 GmSSL 参考实现）
+- `gmscope parse <pcap|bin>`：TLCP/TLS 协议画像（人类可读 / `--json`）
+- `gmscope tlcp-fixture`：全合成 TLCP 演示样本生成器（PCAP / 原始流；含 SM2 OID 伪证书，仅演示用）
+- 极简 PCAP 读写与以太网/IPv4/TCP 帧构造（含校验和，产物可用 Wireshark 打开）
 
 ### Fixed
 - 交叉验证 SM2 加解密步骤：gmssl 实例未显式 `mode=1` 导致密文顺序错位（gmssl 默认 C1C2C3 vs 本库 C1C3C2）——已对齐，并补充「全量交叉验证入口」回归测试（CI demo 步骤同步覆盖）
 
 ### Planned
-- v0.2.0：TLCP 离线解析 · API 文档
+- v0.2.0：API 文档 · 更多演示素材
 - v0.5.0：密评检测引擎（GB/T 39786 四层面 60+ 检查项）+ HTML 报告
 - v1.0.0：侧信道演示 · KMS · API · 完整文档与演示素材
 
