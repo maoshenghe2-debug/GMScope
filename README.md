@@ -42,9 +42,25 @@ gmscope audit --example a -o report.html
 - ✅ **性能基准**：`gmscope bench`（SM3 / SM4(ECB/CBC/GCM) / SM2，本库 vs 参考库）
 - ✅ **TLCP 离线解析**：记录层 / 握手（ClientHello / ServerHello / 双证书识别 · SM2 OID 检测）；`gmscope parse <pcap|bin>` 协议画像（`--json`）；`gmscope tlcp-fixture` 全合成演示样本生成器
 - ✅ **密评自查（audit）**：72 项检查项库（GB/T 39786 四层面 + 密钥管理 + 安全管理，每项标准出处）× path/op/value 三态 DSL 引擎；`gmscope audit` 生成单文件离线 HTML / Markdown 差距分析报告（层面得分 · 风险分级 · 附录原始 JSON）；`--scan` 附加源码/配置弱模式扫描
-- 🔜 v0.2.0：API 文档 · 更多演示素材
+- 🔜 v0.3.0：API 文档 · 更多演示素材
 - 🔜 v0.5.0：证书文件检查（`--cert`）· 密评官方量化口径对齐 · 检查项库扩充
-- 🔜 v1.0.0：侧信道测评演示 · 密钥管理演示 · HTTP API · 完整文档与演示素材
+- 🔜 v1.0.0：侧信道测评演示 · 密钥管理演示（KMS）· HTTP API · 完整文档与演示素材
+
+## 演示（离线可复现）
+
+`gmscope demo` 一键演示（标准向量 → 双库交叉验证 → TLCP 协议画像 → 密评自查）：
+
+![gmscope demo](docs/assets/demo.gif)
+
+| TLCP 协议画像（`gmscope parse`） | 密评自查（`gmscope audit`） |
+|---|---|
+| ![TLCP 协议画像](docs/assets/parse-tlcp.png) | ![密评自查](docs/assets/audit-cli.png) |
+
+密评差距分析报告（单文件离线 HTML，`gmscope audit --example a -o report.html`）：
+
+![密评自查报告](docs/assets/audit-report.png)
+
+> 以上素材均由真实 CLI 输出 / 报告生成（2026-09 · GMScope v0.2.0）。
 
 ## 设计说明（不重复造轮子）
 
