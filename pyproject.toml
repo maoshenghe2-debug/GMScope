@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gmscope"
-version = "0.1.0"
+version = "0.2.0"
 description = "GMScope · 国密应用安全检测与协议分析平台（SM2/SM3/SM4 · TLCP · 密评）"
 readme = "README.md"
 requires-python = ">=3.11"

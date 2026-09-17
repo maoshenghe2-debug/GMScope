@@ -32,7 +32,7 @@ gmscope parse demo.pcap
 gmscope audit --example a -o report.html
 ```
 
-## 功能一览（v0.2.0-dev）
+## 功能一览（v0.2.0）
 
 - ✅ **SM3 参考实现**：纯 Python（GB/T 32905 / GM/T 0004），含 HMAC-SM3，通过标准向量
 - ✅ **SM4 参考实现**：ECB / CBC / CTR / **GCM（认证加密）** + PKCS#7（GB/T 32907 / GM/T 0002），通过标准向量（含百万次迭代向量，`--slow`）
