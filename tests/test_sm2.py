@@ -82,6 +82,16 @@ class TestRoundtrip:
         assert calls["n"] >= 2
         assert kp.decrypt(ct) == b"retry-case"
 
+    def test_public_key_starting_with_04_not_mangled(self):
+        """回归：gmssl ``lstrip("04")`` 误剥公钥前缀（d=11 的公钥以 04 开头），
+        会把 128 位十六进制公钥误剥为 126 字符，导致 verify/encrypt 崩溃或错误。"""
+        kp = SM2(private_key=f"{11:064x}")
+        assert kp.public_key.startswith("04")
+        assert len(kp._c.public_key) == 128  # 未被 gmssl 剥短
+        sig = kp.sign(b"prefix-regression")
+        assert kp.verify(sig, b"prefix-regression")
+        assert kp.decrypt(kp.encrypt(b"prefix-regression")) == b"prefix-regression"
+
     def test_decrypt_detects_c2_and_c3_tamper(self):
         kp = SM2.generate()
         ct = bytearray(kp.encrypt(b"integrity-check"))

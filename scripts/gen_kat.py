@@ -77,13 +77,13 @@ def gen_sm2_kat(tmp: Path, use_openssl: bool) -> dict:
     sig = sm2.sign(msg, k=k)
 
     # 1) gmssl 原生路径复核（verify_with_sm3 内部自行计算 ZA）
-    from gmssl import sm2 as gm_sm2
+    from gmscope.crypto.sm2 import new_gmssl_ctx
 
-    g = gm_sm2.CryptSM2(private_key="", public_key=pub_hex)
+    g = new_gmssl_ctx("", pub_hex)
     gmssl_ok = bool(g.verify_with_sm3(sig, msg))
 
     # 2) 自研 SM3 计算 ZA/e 与 gmssl _sm3_z 对照
-    g_full = gm_sm2.CryptSM2(private_key=priv_hex, public_key=pub_hex)
+    g_full = new_gmssl_ctx(priv_hex, pub_hex)
     za_ok = g_full._sm3_z(msg) == sm2.compute_e(msg).hex()
 
     # 3) OpenSSL 双向互操作

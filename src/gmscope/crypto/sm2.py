@@ -84,6 +84,21 @@ def decode_signature_der(der: bytes) -> tuple[int, int]:
     return values[0], values[1]
 
 
+def new_gmssl_ctx(private_key: str = "", public_key: str = "", mode: int = 1) -> gm_sm2.CryptSM2:
+    """构造 gmssl ``CryptSM2`` 上下文，并规避其公钥前缀误剥缺陷。
+
+    gmssl 在 ``__init__`` 中执行 ``public_key.lstrip("04")``——这是**字符集剥离**
+    而非前缀判断：当 128 位十六进制公钥本身以 ``04`` 开头时（约 1/256 概率，
+    如 d=11 的 SM2 公钥 ``04b3cb10…``），真实数据会被误剥为 126 字符，
+    导致后续点运算进入 ``None`` 退化路径（TypeError）或验签结果错误。
+    本函数先以空公钥构造、再回填规范化公钥，彻底规避该缺陷。
+    """
+    ctx = gm_sm2.CryptSM2(private_key=private_key, public_key="", mode=mode)
+    if public_key:
+        ctx.public_key = public_key
+    return ctx
+
+
 class SM2:
     """SM2 密钥与运算封装（签名 / 验签 / 加密 / 解密）。"""
 
@@ -101,11 +116,8 @@ class SM2:
             self.public_key = _clean_hex(public_key, 128, "公钥")
         if self.public_key is None and self.private_key is not None:
             self.public_key = self.derive_public(self.private_key)
-        self._c = gm_sm2.CryptSM2(
-            private_key=self.private_key or "",
-            public_key=self.public_key or "",
-            mode=1,  # 密文顺序 C1C3C2（GB/T 32918.4-2016 默认）
-        )
+        # 密文顺序 C1C3C2（GB/T 32918.4-2016 默认）；构造入口见 new_gmssl_ctx
+        self._c = new_gmssl_ctx(self.private_key or "", self.public_key or "")
 
     # ------------------------------------------------------------ 密钥
     @classmethod
@@ -118,7 +130,7 @@ class SM2:
     def derive_public(private_key: str) -> str:
         """由私钥推导公钥（X||Y，128 位十六进制）。"""
         priv = _clean_hex(private_key, 64, "私钥")
-        c = gm_sm2.CryptSM2(private_key=priv, public_key="")
+        c = new_gmssl_ctx(private_key=priv)
         return c._kg(int(priv, 16), c.ecc_table["g"])
 
     # ------------------------------------------------------------ ZA / 摘要
