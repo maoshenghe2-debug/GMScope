@@ -110,6 +110,24 @@ def crosscheck(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def demo() -> None:
+    """离线一键演示：标准向量自检 + 交叉验证 + 下一步指引（无需网络）。"""
+    console.rule("[bold]GMScope 离线演示[/bold]")
+    results = run_selftest()
+    passed = sum(1 for r in results if r.passed)
+    console.print(f"① 标准向量自检：通过 {passed}/{len(results)}（GM/T 0002/0004）")
+    xr = run_crosscheck(n=16)
+    for r in xr:
+        state = "跳过" if r.cases == 0 else ("一致" if r.ok else "不一致")
+        mark = "[green]" if r.ok else "[yellow]" if r.cases == 0 else "[red]"
+        console.print(f"   ② 交叉验证 · {r.engine} {r.algorithm}：{mark}{state}[/]({r.matched}/{r.cases})")
+    console.print("③ 下一步（v0.2.0）：`gmscope parse <pcap>` 协议画像 · `gmscope audit` 密评自查")
+    ok = passed == len(results) and all((not r.cases) or r.ok for r in xr)
+    if not ok:
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     app()
 
