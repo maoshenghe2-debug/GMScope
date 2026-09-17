@@ -30,6 +30,18 @@
 {% endfor %}
 {% endfor %}
 
+{% if r.source_scan %}
+## 三、附：源码/配置弱模式扫描（补充发现）
+
+> 目录：{{ r.source_scan.root }} ｜ 扫描文件 {{ r.source_scan.files_scanned }} ｜ 命中 {{ r.source_scan.findings|length }} 处{% if r.source_scan.truncated %}（已达上限截断）{% endif %} ｜ 正则规则扫描，误报需人工复核
+
+| 规则 | 文件:行 | 说明 | 风险 | 证据（截断） |
+|---|---|---|---|---|
+{% for s in r.source_scan.findings -%}
+| {{ s.rule_id }} | {{ s.file }}:{{ s.line }} | {{ s.title }} | {{ s.risk_label }} | {{ s.evidence }} |
+{% endfor %}
+{% endif %}
+
 ---
 
 *{{ r.meta.scoring }}*

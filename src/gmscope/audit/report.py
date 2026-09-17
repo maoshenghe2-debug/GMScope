@@ -31,6 +31,9 @@ def _build_view(report: dict) -> dict:
         finding["verdict_class"] = _VERDICT_CLASS.get(finding["verdict"], "na")
         finding["default_open"] = finding["verdict"] in ("不符合", "部分符合")
 
+    for item in view.get("source_scan", {}).get("findings", []):
+        item["risk_label"] = _RISK_LABEL.get(item["risk"], item["risk"])
+
     view["layers_view"] = [
         {**layer, "findings": [f for f in view["findings"] if f["layer"] == layer["key"]]}
         for layer in view["summary"]["layers"]

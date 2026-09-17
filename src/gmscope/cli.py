@@ -259,6 +259,7 @@ def audit(
     example: str = typer.Option(None, "--example", help="使用内置示例：a（基本合规）/ b（多处违规）"),
     fmt: str = typer.Option("html", "-f", "--format", help="报告格式：html / md / json"),
     out: str = typer.Option(None, "-o", "--out", help="输出路径（默认 report.<fmt>）"),
+    scan: str = typer.Option(None, "-d", "--scan", help="可选：附加源码/配置目录弱模式扫描（补充发现）"),
 ) -> None:
     """密评自查：执行检查项库（72 项）并生成差距分析报告。"""
     from pathlib import Path
@@ -284,6 +285,15 @@ def audit(
     else:
         console.print("[red]请提供系统描述 YAML 路径，或使用 --example a|b[/red]")
         raise typer.Exit(code=2)
+
+    if scan:
+        from .audit.source_scan import scan_directory
+
+        try:
+            report_data["source_scan"] = scan_directory(scan)
+        except OSError as exc:
+            console.print(f"[red]目录扫描失败：{exc}[/red]")
+            raise typer.Exit(code=2) from exc
 
     if fmt == "json":
         path = Path(out or "report.json")
@@ -321,6 +331,9 @@ def audit(
         f"风险项：高 {summary['risk_counts']['high']} · 中 {summary['risk_counts']['medium']} · "
         f"低 {summary['risk_counts']['low']} → 报告已写入 [bold]{path}[/bold]"
     )
+    if report_data.get("source_scan"):
+        scan_info = report_data["source_scan"]
+        console.print(f"源码扫描：{scan_info['files_scanned']} 个文件 · 命中 {len(scan_info['findings'])} 处（补充发现，需人工复核）")
 
 
 @app.command()

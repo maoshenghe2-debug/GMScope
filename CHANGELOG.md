@@ -17,6 +17,10 @@
 - `gmscope parse <pcap|bin>`：TLCP/TLS 协议画像（人类可读 / `--json`）
 - `gmscope tlcp-fixture`：全合成 TLCP 演示样本生成器（PCAP / 原始流；含 SM2 OID 伪证书，仅演示用）
 - 极简 PCAP 读写与以太网/IPv4/TCP 帧构造（含校验和，产物可用 Wireshark 打开）
+- **密评自查（gmscope.audit）**：72 项检查项库（GB/T 39786 四层面 + 密钥管理 + 安全管理，`std_ref` 非空）× path/op/value 三态 DSL（符合 / 部分符合 / 不符合 / 不适用）
+- `gmscope audit`：差距分析报告（HTML 单文件离线 / Markdown / JSON；层面得分、风险分级、`schemas/audit_report.schema.json` 契约）；`gmscope report` 由 JSON 重渲染
+- `gmscope audit --scan <dir>`：源码/配置弱模式扫描（10 条正则规则：弱算法 / 不安全随机数 / 硬编码凭据等，补充发现需人工复核）
+- 示例系统 `system_a` / `system_b`（期望判定由测试断言；`schemas/system.schema.json` 契约，jsonschema 校验进 CI）
 
 ### Fixed
 - 交叉验证 SM2 加解密步骤：gmssl 实例未显式 `mode=1` 导致密文顺序错位（gmssl 默认 C1C2C3 vs 本库 C1C3C2）——已对齐，并补充「全量交叉验证入口」回归测试（CI demo 步骤同步覆盖）

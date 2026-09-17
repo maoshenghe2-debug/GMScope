@@ -121,6 +121,27 @@ body[data-filter="不适用"] details.finding:not([data-verdict="不适用"]) { 
 </section>
 {% endfor %}
 
+{% if r.source_scan %}
+<section class="layer" id="source-scan">
+  <h2>附：源码/配置弱模式扫描（补充发现）</h2>
+  <p class="layer-meta">目录 {{ r.source_scan.root }} ｜ 扫描文件 {{ r.source_scan.files_scanned }} ｜ 规则 {{ r.source_scan.rules }} 条 ｜ 命中 {{ r.source_scan.findings|length }} 处{% if r.source_scan.truncated %}（已达上限截断）{% endif %} ｜ 正则规则扫描，误报需人工复核</p>
+  {% for s in r.source_scan.findings %}
+  <details class="finding" data-verdict="不符合" data-risk="{{ s.risk }}">
+    <summary>
+      <span class="badge bad">{{ s.rule_id }}</span>
+      <span class="cid">{{ s.file }}:{{ s.line }}</span>
+      <span class="ftitle">{{ s.title }}</span>
+      <span class="risk {{ s.risk }}">风险：{{ s.risk_label }}</span>
+    </summary>
+    <div class="fbody">
+      <p><span class="k">证据：</span>{{ s.evidence }}</p>
+      <p><span class="k">整改建议：</span>{{ s.advice }}</p>
+    </div>
+  </details>
+  {% endfor %}
+</section>
+{% endif %}
+
 <footer class="appendix">
   <details>
     <summary>附录 A：原始检测数据（JSON）</summary>
