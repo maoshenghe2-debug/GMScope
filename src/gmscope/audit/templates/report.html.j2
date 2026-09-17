@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>密评自查报告 · {{ r.target.name }}</title>
+<style>
+:root { --primary: #1f4e79; --ok: #1e7d46; --warn: #b26a00; --bad: #b3261e; --na: #6b7280; --line: #d7dee6; --bg: #f5f7fa; --card: #ffffff; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif; color: #1f2937; background: var(--bg); line-height: 1.6; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 24px 20px 60px; }
+header.summary { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 22px 24px; }
+h1 { color: var(--primary); margin: 0 0 6px; font-size: 24px; }
+.meta { color: #4b5563; font-size: 13px; margin: 0 0 18px; }
+.rings { display: flex; flex-wrap: wrap; gap: 18px; }
+.ring { width: 116px; text-align: center; }
+.ring svg { width: 100px; height: 100px; display: block; margin: 0 auto; }
+.ring-bg { fill: none; stroke: #e5eaf0; stroke-width: 8; }
+.ring-fg { fill: none; stroke: var(--primary); stroke-width: 8; stroke-linecap: round; }
+.ring-score { font-size: 20px; font-weight: 700; fill: var(--primary); }
+.ring-label { font-size: 12px; color: #4b5563; margin-top: 4px; }
+.counts { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 14px; }
+.counts b.risk-high { color: var(--bad); }
+.counts b.risk-mid { color: var(--warn); }
+.counts b.risk-low { color: var(--na); }
+.toolbar { position: sticky; top: 0; background: rgba(245,247,250,.95); padding: 10px 0; z-index: 5; display: flex; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); margin-top: 18px; flex-wrap: wrap; }
+.toolbar .filter button { border: 1px solid var(--line); background: #fff; color: #374151; padding: 4px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+.toolbar .filter button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+nav.toc { font-size: 13px; margin-left: auto; }
+nav.toc a { color: var(--primary); margin-left: 10px; text-decoration: none; }
+section.layer { margin-top: 26px; }
+section.layer h2 { color: var(--primary); font-size: 19px; margin: 0 0 4px; padding-bottom: 6px; border-bottom: 2px solid var(--primary); }
+.layer-meta { font-size: 13px; color: #4b5563; margin: 6px 0 12px; }
+details.finding { background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; overflow: hidden; }
+details.finding summary { cursor: pointer; padding: 9px 14px; display: flex; gap: 8px; align-items: center; font-size: 14px; list-style: none; }
+details.finding summary::-webkit-details-marker { display: none; }
+.badge { font-size: 12px; padding: 1px 8px; border-radius: 999px; color: #fff; white-space: nowrap; }
+.badge.ok { background: var(--ok); }
+.badge.warn { background: var(--warn); }
+.badge.bad { background: var(--bad); }
+.badge.na { background: var(--na); }
+.cid { font-family: Consolas, "Courier New", monospace; color: #6b7280; font-size: 12px; }
+.risk { margin-left: auto; font-size: 12px; color: #6b7280; white-space: nowrap; }
+.risk.high { color: var(--bad); }
+.risk.medium { color: var(--warn); }
+.fbody { padding: 4px 16px 14px; border-top: 1px dashed var(--line); font-size: 13.5px; }
+.fbody p { margin: 8px 0; }
+.fbody .k { color: var(--primary); font-weight: 700; }
+footer.appendix { margin-top: 34px; font-size: 12.5px; color: #4b5563; }
+footer.appendix details { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
+pre.raw { max-height: 320px; overflow: auto; background: #0f172a; color: #d7e3f4; padding: 12px; border-radius: 8px; font-size: 11.5px; }
+body[data-filter="符合"] details.finding:not([data-verdict="符合"]) { display: none; }
+body[data-filter="部分符合"] details.finding:not([data-verdict="部分符合"]) { display: none; }
+body[data-filter="不符合"] details.finding:not([data-verdict="不符合"]) { display: none; }
+body[data-filter="不适用"] details.finding:not([data-verdict="不适用"]) { display: none; }
+@media print {
+  body { background: #fff; }
+  .toolbar { display: none; }
+  .wrap { max-width: none; padding: 0; }
+  details.finding { break-inside: avoid; border-color: #999; }
+  pre.raw { max-height: none; background: #fff; color: #000; border: 1px solid #999; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="summary">
+  <h1>密码应用安全性（密评）自查报告</h1>
+  <p class="meta">被测系统：<b>{{ r.target.name }}</b>{% if r.target.owner %} · {{ r.target.owner }}{% endif %}{% if r.target.level %} · 等级 {{ r.target.level }}{% endif %} ｜ 生成时间 {{ r.generated_at }} ｜ 工具 GMScope v{{ r.tool_version }} · 检查项库 v{{ r.meta.checks_version }}</p>
+  <div class="rings">
+    {% for layer in r.summary.layers %}
+    <div class="ring">
+      <svg viewBox="0 0 100 100" role="img" aria-label="{{ layer.name }} 符合度 {{ layer.score_text }}">
+        <circle class="ring-bg" cx="50" cy="50" r="40"></circle>
+        <circle class="ring-fg" cx="50" cy="50" r="40" stroke-dasharray="{{ layer.ring_dash }} 251.327" transform="rotate(-90 50 50)"></circle>
+        <text class="ring-score" x="50" y="54" text-anchor="middle">{{ layer.score_text }}</text>
+      </svg>
+      <div class="ring-label">{{ layer.name }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="counts">
+    总体符合度（简化口径）：<b>{{ r.summary.overall_score }}</b> ｜
+    符合 {{ r.summary.counts["符合"] }} · 部分符合 {{ r.summary.counts["部分符合"] }} · 不符合 {{ r.summary.counts["不符合"] }} · 不适用 {{ r.summary.counts["不适用"] }} ｜
+    风险项：<b class="risk-high">高 {{ r.summary.risk_counts.high }}</b> · <b class="risk-mid">中 {{ r.summary.risk_counts.medium }}</b> · <b class="risk-low">低 {{ r.summary.risk_counts.low }}</b>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="filter">
+    <button data-filter="all" class="active">全部</button>
+    <button data-filter="不符合">仅看不符合</button>
+    <button data-filter="部分符合">仅看部分符合</button>
+    <button data-filter="符合">仅看符合</button>
+  </div>
+  <nav class="toc">
+    {% for layer in r.summary.layers %}<a href="#layer-{{ layer.key }}">{{ layer.name }}</a>{% endfor %}
+  </nav>
+</div>
+
+{% for layer in r.layers_view %}
+<section class="layer" id="layer-{{ layer.key }}">
+  <h2>{{ layer.name }} ｜ 得分 {{ layer.score_text }}</h2>
+  <p class="layer-meta">符合 {{ layer.counts["符合"] }} · 部分符合 {{ layer.counts["部分符合"] }} · 不符合 {{ layer.counts["不符合"] }} · 不适用 {{ layer.counts["不适用"] }}</p>
+  {% for f in layer.findings %}
+  <details class="finding" data-verdict="{{ f.verdict }}" data-risk="{{ f.risk }}"{% if f.default_open %} open{% endif %}>
+    <summary>
+      <span class="badge {{ f.verdict_class }}">{{ f.verdict }}</span>
+      <span class="cid">{{ f.check_id }}</span>
+      <span class="ftitle">{{ f.title }}</span>
+      <span class="risk {{ f.risk }}">风险：{{ f.risk_label }}</span>
+    </summary>
+    <div class="fbody">
+      <p><span class="k">现状：</span>{% if f.actual is not none %}{{ f.actual }}{% else %}—{% endif %}{% if f.note %}（{{ f.note }}）{% endif %}</p>
+      <p><span class="k">标准出处：</span>{{ f.std_ref }}</p>
+      <p><span class="k">整改建议：</span>{{ f.advice }}</p>
+    </div>
+  </details>
+  {% endfor %}
+</section>
+{% endfor %}
+
+<footer class="appendix">
+  <details>
+    <summary>附录 A：原始检测数据（JSON）</summary>
+    <pre class="raw">{{ r.raw_json }}</pre>
+  </details>
+  <details>
+    <summary>附录 B：工具与方法说明</summary>
+    <p>本报告由 GMScope v{{ r.tool_version }} 自动生成；检查项库 v{{ r.meta.checks_version }}，共 {{ r.summary.counts.total }} 项。依据：{% for b in r.meta.basis %}{{ b }}{% if not loop.last %}；{% endif %}{% endfor %}。</p>
+    <p>{{ r.meta.scoring }}</p>
+    <p>免责声明：本报告为自动化工具的自查结果，仅供合规自查与整改参考，不构成任何形式的正式测评结论；正式密评以具备资质的测评机构依据 GB/T 39786 / GM/T 0115 出具的测评报告为准。</p>
+  </details>
+</footer>
+</div>
+<script>
+(function () {
+  document.querySelectorAll(".filter button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.body.dataset.filter = btn.dataset.filter;
+      document.querySelectorAll(".filter button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+    });
+  });
+})();
+</script>
+</body>
+</html>

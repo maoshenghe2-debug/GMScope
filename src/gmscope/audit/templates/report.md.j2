@@ -1,0 +1,35 @@
+# {{ r.target.name }} · 密码应用安全性（密评）自查报告
+
+> 生成时间：{{ r.generated_at }} ｜ 工具：GMScope v{{ r.tool_version }} ｜ 检查项库：v{{ r.meta.checks_version }}
+> 免责声明：本报告为自动化自查结果，仅供整改参考，不构成正式测评结论。
+
+## 一、总体结论
+
+| 指标 | 结果 |
+|---|---|
+| 总体符合度（简化口径） | **{{ r.summary.overall_score }}%** |
+| 符合 / 部分符合 / 不符合 / 不适用 | {{ r.summary.counts["符合"] }} / {{ r.summary.counts["部分符合"] }} / {{ r.summary.counts["不符合"] }} / {{ r.summary.counts["不适用"] }} |
+| 风险项（高 / 中 / 低） | {{ r.summary.risk_counts.high }} / {{ r.summary.risk_counts.medium }} / {{ r.summary.risk_counts.low }} |
+
+### 层面得分
+
+| 层面 | 得分 | 符合 | 部分符合 | 不符合 | 不适用 |
+|---|---|---|---|---|---|
+{% for layer in r.summary.layers -%}
+| {{ layer.name }} | {{ layer.score_text }} | {{ layer.counts["符合"] }} | {{ layer.counts["部分符合"] }} | {{ layer.counts["不符合"] }} | {{ layer.counts["不适用"] }} |
+{% endfor %}
+
+## 二、检测明细
+{% for layer in r.layers_view %}
+### {{ loop.index }}. {{ layer.name }}（得分 {{ layer.score_text }}）
+
+| 检查项 | 判定 | 风险 | 标准出处 | 整改建议 |
+|---|---|---|---|---|
+{% for f in layer.findings -%}
+| {{ f.check_id }} {{ f.title }} | {{ f.verdict }} | {{ f.risk_label }} | {{ f.std_ref }} | {{ f.advice }} |
+{% endfor %}
+{% endfor %}
+
+---
+
+*{{ r.meta.scoring }}*

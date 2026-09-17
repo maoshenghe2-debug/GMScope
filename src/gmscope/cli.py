@@ -254,8 +254,107 @@ def tlcp_fixture(
 
 
 @app.command()
+def audit(
+    config: str | None = typer.Argument(None, help="系统描述 YAML 路径（或使用 --example 内置示例）"),
+    example: str = typer.Option(None, "--example", help="使用内置示例：a（基本合规）/ b（多处违规）"),
+    fmt: str = typer.Option("html", "-f", "--format", help="报告格式：html / md / json"),
+    out: str = typer.Option(None, "-o", "--out", help="输出路径（默认 report.<fmt>）"),
+) -> None:
+    """密评自查：执行检查项库（72 项）并生成差距分析报告。"""
+    from pathlib import Path
+
+    import yaml
+
+    from .audit import load_example
+    from .audit.engine import run_audit, run_audit_file
+    from .audit.report import render_html, render_markdown
+
+    if example:
+        try:
+            report_data = run_audit(load_example(example))
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=2) from exc
+    elif config:
+        try:
+            report_data = run_audit_file(config)
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            console.print(f"[red]无法读取系统描述：{exc}[/red]")
+            raise typer.Exit(code=2) from exc
+    else:
+        console.print("[red]请提供系统描述 YAML 路径，或使用 --example a|b[/red]")
+        raise typer.Exit(code=2)
+
+    if fmt == "json":
+        path = Path(out or "report.json")
+        path.write_text(jsonlib.dumps(report_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    elif fmt == "md":
+        path = Path(out or "report.md")
+        path.write_text(render_markdown(report_data), encoding="utf-8")
+    elif fmt == "html":
+        path = Path(out or "report.html")
+        path.write_text(render_html(report_data), encoding="utf-8")
+    else:
+        console.print(f"[red]未知格式：{fmt}（可选 html / md / json）[/red]")
+        raise typer.Exit(code=2)
+
+    summary = report_data["summary"]
+    table = Table(title=f"密评自查 · {report_data['target'].get('name', '未命名系统')} · 简化口径得分 {summary['overall_score']}")
+    table.add_column("层面", style="cyan")
+    table.add_column("得分", justify="right")
+    table.add_column("符合", justify="right")
+    table.add_column("部分", justify="right")
+    table.add_column("不符合", justify="right")
+    table.add_column("不适用", justify="right")
+    for layer in summary["layers"]:
+        counts = layer["counts"]
+        table.add_row(
+            layer["name"],
+            "—" if layer["score"] is None else f"{layer['score']:g}",
+            str(counts["符合"]),
+            str(counts["部分符合"]),
+            str(counts["不符合"]),
+            str(counts["不适用"]),
+        )
+    console.print(table)
+    console.print(
+        f"风险项：高 {summary['risk_counts']['high']} · 中 {summary['risk_counts']['medium']} · "
+        f"低 {summary['risk_counts']['low']} → 报告已写入 [bold]{path}[/bold]"
+    )
+
+
+@app.command()
+def report(
+    source: str = typer.Argument(..., help="audit --format json 产出的报告 JSON 路径"),
+    fmt: str = typer.Option("html", "-f", "--format", help="渲染格式：html / md"),
+    out: str = typer.Option(None, "-o", "--out", help="输出路径"),
+) -> None:
+    """由报告 JSON 重新渲染 HTML / Markdown（可归档、可再分发）。"""
+    from pathlib import Path
+
+    from .audit.report import render_html, render_markdown
+
+    try:
+        report_data = jsonlib.loads(Path(source).read_text(encoding="utf-8"))
+    except (OSError, jsonlib.JSONDecodeError) as exc:
+        console.print(f"[red]无法读取报告 JSON：{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
+    if fmt == "html":
+        path = Path(out or "report.html")
+        path.write_text(render_html(report_data), encoding="utf-8")
+    elif fmt == "md":
+        path = Path(out or "report.md")
+        path.write_text(render_markdown(report_data), encoding="utf-8")
+    else:
+        console.print(f"[red]未知格式：{fmt}（可选 html / md）[/red]")
+        raise typer.Exit(code=2)
+    console.print(f"报告已写入 [bold]{path}[/bold]")
+
+
+@app.command()
 def demo() -> None:
-    """离线一键演示：标准向量自检 + 交叉验证 + 下一步指引（无需网络）。"""
+    """离线一键演示：标准向量自检 + 交叉验证 + 协议画像 + 密评自查（无需网络）。"""
     console.rule("[bold]GMScope 离线演示[/bold]")
     results = run_selftest()
     passed = sum(1 for r in results if r.passed)
@@ -266,6 +365,15 @@ def demo() -> None:
         mark = "[green]" if r.ok else "[yellow]" if r.cases == 0 else "[red]"
         console.print(f"   ② 交叉验证 · {r.engine} {r.algorithm}：{mark}{state}[/]({r.matched}/{r.cases})")
     console.print("③ 试用 TLCP 协议画像：`gmscope tlcp-fixture demo.pcap` → `gmscope parse demo.pcap`（离线）")
+    from .audit import load_example
+    from .audit.engine import run_audit
+
+    score_a = run_audit(load_example("a"))["summary"]["overall_score"]
+    score_b = run_audit(load_example("b"))["summary"]["overall_score"]
+    console.print(
+        f"④ 密评自查（内置示例）：A {score_a} 分 · B {score_b} 分"
+        "（`gmscope audit --example a -o report.html` 生成 HTML 报告）"
+    )
     ok = passed == len(results) and all((not r.cases) or r.ok for r in xr)
     if not ok:
         raise typer.Exit(code=1)
