@@ -2,16 +2,19 @@
 
 依据：GB/T 32907-2016 / GM/T 0002-2012《SM4 分组密码算法》。
 
-支持模式：ECB / CBC / CTR（配合 PKCS#7 填充；CTR 为流式对称加解密）。
+支持模式：ECB / CBC / CTR / GCM（ECB/CBC 配合 PKCS#7 填充；CTR/GCM 为流式）。
 模式说明：ECB 仅为标准向量符合性验证所需（GM/T 0002 附录示例即采用 ECB）；
-ECB 会泄露明文结构，**实际数据保护应使用 CBC/CTR**（后续版本补充 GCM）。
+ECB 会泄露明文结构，**实际数据保护应使用 CBC 或 GCM**。GCM 为认证加密
+（机密性 + 完整性），按 NIST SP 800-38D 结构实现（GHASH + CTR）。
 本实现为 **教学对照实现**：正确性由标准测试向量与 ``gmssl`` / ``cryptography``
 交叉验证保证，GMScope 主链路使用成熟库实现。
 """
 
 from __future__ import annotations
 
-__all__ = ["SM4", "pkcs7_pad", "pkcs7_unpad"]
+import secrets
+
+__all__ = ["SM4", "SM4GCMError", "pkcs7_pad", "pkcs7_unpad"]
 
 # 系统参数 FK（GB/T 32907 第 5.3 节）
 _FK = (0xA3B1BAC6, 0x56AA3350, 0x677D9197, 0xB27022DC)
@@ -115,8 +118,39 @@ def pkcs7_unpad(data: bytes, block_size: int = _BLOCK) -> bytes:
     return data[:-n]
 
 
+class SM4GCMError(ValueError):
+    """SM4-GCM 认证失败（标签不匹配）。"""
+
+
+# GCM 的 GF(2^128) 归约常量：R = 0xE1 || 0^120
+# （对应多项式 x^128 + x^7 + x^2 + x + 1，NIST SP 800-38D 约定）
+_GCM_R = 0xE1000000000000000000000000000000
+
+
+def _gf_mul(x: int, y: int) -> int:
+    """GF(2^128) 乘法（分组按大端整数解释，MSB 为先）。"""
+    z = 0
+    v = y
+    for i in range(128):
+        if (x >> (127 - i)) & 1:
+            z ^= v
+        v = (v >> 1) ^ (_GCM_R if v & 1 else 0)
+    return z
+
+
+def _ghash(h: int, aad: bytes, ct: bytes) -> int:
+    """GHASH_H(A, C)：附加数据与密文的认证杂凑值。"""
+    y = 0
+    for part in (aad, ct):
+        padded = part + bytes((-len(part)) % _BLOCK)
+        for i in range(0, len(padded), _BLOCK):
+            y = _gf_mul(y ^ int.from_bytes(padded[i : i + _BLOCK], "big"), h)
+    lengths = (len(aad) * 8).to_bytes(8, "big") + (len(ct) * 8).to_bytes(8, "big")
+    return _gf_mul(y ^ int.from_bytes(lengths, "big"), h)
+
+
 class SM4:
-    """SM4 分组密码（ECB / CBC / CTR）。"""
+    """SM4 分组密码（ECB / CBC / CTR / GCM）。"""
 
     block_size = _BLOCK
     key_size = 16
@@ -193,3 +227,46 @@ class SM4:
             out += _xor(chunk, key_stream[: len(chunk)])
             counter = (counter + 1) % (1 << 128)
         return bytes(out)
+
+    # ---- GCM（认证加密） ----
+    def _gcm_h(self) -> int:
+        return int.from_bytes(self.encrypt_block(bytes(_BLOCK)), "big")
+
+    @staticmethod
+    def _gcm_j0(h: int, iv: bytes) -> int:
+        if len(iv) == 12:
+            return int.from_bytes(iv + b"\x00\x00\x00\x01", "big")
+        return _ghash(h, b"", iv)
+
+    def _gctr(self, data: bytes, j0: int) -> bytes:
+        """GCTR：以 inc32(J0) 为起始计数器做流式加/解密。"""
+        out = bytearray()
+        counter = j0
+        for i in range(0, len(data), _BLOCK):
+            counter = ((counter >> 32) << 32) | ((counter + 1) & _MASK32)
+            key_stream = self.encrypt_block(counter.to_bytes(_BLOCK, "big"))
+            chunk = data[i : i + _BLOCK]
+            out += _xor(chunk, key_stream[: len(chunk)])
+        return bytes(out)
+
+    def encrypt_gcm(self, data: bytes, iv: bytes, aad: bytes = b"") -> tuple:
+        """SM4-GCM 认证加密，返回 (密文, 16 字节认证标签)。"""
+        h = self._gcm_h()
+        j0 = self._gcm_j0(h, iv)
+        ct = self._gctr(bytes(data), j0)
+        tag = _ghash(h, bytes(aad), ct) ^ int.from_bytes(self.encrypt_block(j0.to_bytes(_BLOCK, "big")), "big")
+        return ct, tag.to_bytes(_BLOCK, "big")
+
+    def decrypt_gcm(self, data: bytes, tag: bytes, iv: bytes, aad: bytes = b"") -> bytes:
+        """SM4-GCM 认证解密；标签不匹配时抛出 :class:`SM4GCMError`（先验签后解密）。"""
+        tag = bytes(tag)
+        if len(tag) != _BLOCK:
+            raise SM4GCMError("GCM 标签必须为 16 字节")
+        h = self._gcm_h()
+        j0 = self._gcm_j0(h, iv)
+        expect = _ghash(h, bytes(aad), bytes(data)) ^ int.from_bytes(
+            self.encrypt_block(j0.to_bytes(_BLOCK, "big")), "big"
+        )
+        if not secrets.compare_digest(expect.to_bytes(_BLOCK, "big"), tag):
+            raise SM4GCMError("GCM 认证失败：标签不匹配（数据被篡改或密钥/IV 错误）")
+        return self._gctr(bytes(data), j0)
